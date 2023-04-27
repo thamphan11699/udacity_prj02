@@ -51,6 +51,7 @@ final class ProfilerImpl implements Profiler {
     try{
       Writer writer = new FileWriter(path.toFile().getName());
       writeData(writer);
+      writer.flush();
     } catch (Exception e) {
       throw new RuntimeException(e.getCause());
     }
