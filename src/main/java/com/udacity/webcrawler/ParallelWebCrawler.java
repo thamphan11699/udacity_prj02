@@ -8,8 +8,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ForkJoinPool;
 import java.util.regex.Pattern;
 
@@ -48,8 +46,8 @@ final class ParallelWebCrawler implements WebCrawler {
   public CrawlResult crawl(List<String> startingUrls) {
 
     Instant deadline = clock.instant().plus(timeout);
-    Map<String, Integer> counts = new ConcurrentHashMap<>();
-    Set<String> visitedUrls = new ConcurrentSkipListSet<>();
+    Map<String, Integer> counts = Collections.synchronizedMap(new HashMap<>());
+    Set<String> visitedUrls = Collections.synchronizedSet(new HashSet<>());
 
     startingUrls.forEach(
         url ->
@@ -64,17 +62,17 @@ final class ParallelWebCrawler implements WebCrawler {
                     clock,
                     ignoredUrls)));
 
-    if (counts.isEmpty()) {
+    if (!counts.isEmpty()) {
       return new CrawlResult.Builder()
-          .setWordCounts(counts)
+          .setWordCounts(WordCounts.sort(counts, popularWordCount))
           .setUrlsVisited(visitedUrls.size())
           .build();
     }
-
     return new CrawlResult.Builder()
-        .setWordCounts(WordCounts.sort(counts, popularWordCount))
-        .setUrlsVisited(visitedUrls.size())
-        .build();
+            .setWordCounts(counts)
+            .setUrlsVisited(visitedUrls.size())
+            .build();
+
   }
 
   @Override

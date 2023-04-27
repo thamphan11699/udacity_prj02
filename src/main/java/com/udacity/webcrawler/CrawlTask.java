@@ -14,9 +14,9 @@ public class CrawlTask extends RecursiveAction {
 
   private final Instant deadline;
 
-  private final Map<String, Integer> counts;
+  private Map<String, Integer> counts;
 
-  private final Set<String> visitedUrls;
+  private Set<String> visitedUrls;
 
   private final PageParserFactory parserFactory;
 
@@ -48,13 +48,11 @@ public class CrawlTask extends RecursiveAction {
   @Override
   protected void compute() {
 
-    if (maxDepth == 0 || clock.instant().isAfter(deadline)) {
+    if (!(maxDepth > 0) || clock.instant().isAfter(deadline)) {
       return;
     }
     for (Pattern pattern : ignoredUrls) {
-      if (pattern.matcher(url).matches()) {
-        return;
-      }
+      if (pattern.matcher(url).matches()) return;
     }
     if (visitedUrls.contains(url)) {
       return;
@@ -62,12 +60,13 @@ public class CrawlTask extends RecursiveAction {
     visitedUrls.add(url);
     PageParser.Result result = parserFactory.get(url).parse();
 
-    result
-        .getWordCounts()
-        .forEach(
-            (key, value) -> {
-              counts.compute(key, (k, v) -> Objects.isNull(v) ? value : value + v);
-            });
+    for (Map.Entry<String, Integer> e : result.getWordCounts().entrySet()) {
+      if (counts.containsKey(e.getKey())) {
+        counts.put(e.getKey(), e.getValue() + counts.get(e.getKey()));
+      } else {
+        counts.put(e.getKey(), e.getValue());
+      }
+    }
     List<CrawlTask> subtasks =
         result.getLinks().stream()
             .map(
@@ -78,7 +77,7 @@ public class CrawlTask extends RecursiveAction {
                         counts,
                         visitedUrls,
                         parserFactory,
-                        maxDepth,
+                        maxDepth - 1,
                         clock,
                         ignoredUrls))
             .toList();
